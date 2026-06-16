@@ -1,0 +1,39 @@
+scheme_id: nsp
+name: "National Scholarship Portal (NSP) - Scholarships"
+name_hindi: "राष्ट्रीय छात्रवृत्ति पोर्टल"
+benefit: "Monetary scholarships for eligible students (category and level dependent)"
+ministry: "Ministry of Education"
+last_updated: "2024-08"
+
+eligibility:
+  required:
+    - field: previous_exam_marks_percent
+      operator: greater_than_or_equal
+      value: 50
+      reason: "Minimum 50% marks in previous exam is commonly required"
+    - field: aadhaar_seeded_bank_account
+      operator: equals
+      value: true
+      reason: "Aadhaar-seeded bank account is mandatory for scholarship disbursement"
+  exclusions:
+    - field: annual_family_income
+      operator: greater_than
+      value: 800000
+      reason: "High income may disqualify for many NSP categories (threshold varies by category)"
+
+notes:
+  - "Income ceilings vary by scholarship category: 1-2.5 lakh (minority/SC/ST), up to ₹8 lakh for some OBC/EBC top-class scholarships. Exact ceiling depends on the specific scheme on NSP."
+
+documents_required:
+  - "Previous exam marksheet"
+  - "Aadhaar Card"
+  - "Bank Passbook (Aadhaar-seeded)"
+  - "Income certificate (as per category)"
+
+application_route:
+  type: csc
+  instruction: "Visit nearest CSC to help lodge NSP scholarship application and upload required documents. VLE will assist with category-specific form selection."
+
+human_in_loop_trigger:
+  - field: income_certificate_needed
+    reason: "Some scholarship categories require an income certificate issued by local authorities"

@@ -1,0 +1,34 @@
+scheme_id: pmsby
+name: "Pradhan Mantri Suraksha Bima Yojana (PMSBY)"
+name_hindi: "प्रधानमंत्री सुरक्षा बीमा योजना"
+benefit: "Accidental death/total disability: ₹2,00,000; partial permanent disability: ₹1,00,000"
+ministry: "Ministry of Finance / Department of Financial Services"
+last_updated: "2024-08"
+
+eligibility:
+  required:
+    - field: age
+      operator: greater_than_or_equal
+      value: 18
+      reason: "Minimum age 18 years"
+    - field: age
+      operator: less_than_or_equal
+      value: 70
+      reason: "Upper age limit 70 years"
+    - field: has_savings_bank_account
+      operator: equals
+      value: true
+      reason: "An active savings bank account is required for premium auto-debit"
+  exclusions: []
+
+documents_required:
+  - "Aadhaar Card"
+  - "Bank Passbook / account details (for auto-debit premium)"
+
+application_route:
+  type: csc
+  instruction: "Visit CSC or your bank branch to enroll; premium is typically ₹20/year via auto-debit. VLE/bank will assist to set up mandate."
+
+human_in_loop_trigger:
+  - field: auto_debit_setup
+    reason: "Bank must set up auto-debit for the premium; CSC or branch help is often required"

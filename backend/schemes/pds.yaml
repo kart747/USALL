@@ -1,0 +1,40 @@
+scheme_id: pds
+name: "Public Distribution System (NFSA / Ration Card)"
+name_hindi: "जन आपूर्ति प्रणाली (राष्ट्रीय खाद्य सुरक्षा अधिनियम)"
+benefit: "Subsidised food grains: 5kg/person/month (PHH) or 35kg/family/month (AAY) depending on card type"
+ministry: "Department of Food and Public Distribution"
+last_updated: "2024-08"
+
+eligibility:
+  required:
+    - field: state
+      operator: in
+      value: [Karnataka, Uttar Pradesh]
+      reason: "MVP scope includes Karnataka and UP for state-specific PDS rules"
+  exclusions:
+    - field: vehicle_type
+      operator: contains
+      value: four_wheeler
+      reason: "Four-wheeler ownership commonly disqualifies for subsidised ration in many states"
+    - field: employment_type
+      operator: equals
+      value: government
+      reason: "Government employees are typically excluded"
+    - field: monthly_household_income
+      operator: greater_than
+      value: 10000
+      reason: "Households with income >₹10,000/month (rural) are commonly excluded"
+
+documents_required:
+  - "Ration Card (existing) or application form"
+  - "Aadhaar Card"
+  - "Address proof (village certificate / voter ID)"
+  - "Family member list / birth certificates for dependents"
+
+application_route:
+  type: csc
+  instruction: "Apply or update your ration card at the nearest CSC; VLE will guide state-specific NFSA procedures and upload documents."
+
+human_in_loop_trigger:
+  - field: state_pds_verification
+    reason: "PDS eligibility and entitlements vary by state; the VLE must confirm correct card type and quota"

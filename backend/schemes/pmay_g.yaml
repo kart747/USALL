@@ -1,0 +1,49 @@
+scheme_id: pmay_g
+name: "Pradhan Mantri Awas Yojana - Gramin"
+name_hindi: "प्रधानमंत्री आवास योजना - ग्रामीण"
+benefit: "Financial assistance of ₹1.20 lakh for construction of pucca house (₹1.30 lakh in hilly/tribal areas)"
+ministry: "Ministry of Rural Development"
+last_updated: "2024-08"
+
+eligibility:
+  required:
+    - field: location_type
+      operator: equals
+      value: rural
+      reason: "Scheme is strictly for rural households"
+    - field: housing_type
+      operator: in
+      value: [kutcha, homeless, zero_room, one_room]
+      reason: "Must be living in kutcha or no house"
+
+  exclusions:
+    - field: vehicle_type
+      operator: contains
+      value: four_wheeler
+      reason: "Four-wheeler ownership disqualifies"
+    - field: kcc_limit
+      operator: greater_than
+      value: 50000
+      reason: "KCC limit above ₹50,000 disqualifies"
+    - field: employment_type
+      operator: equals
+      value: government
+      reason: "Government employees are excluded"
+    - field: land_irrigated_acres
+      operator: greater_than
+      value: 2.5
+      reason: "More than 2.5 acres irrigated land disqualifies"
+
+documents_required:
+  - "Aadhaar Card"
+  - "Bank Passbook (Aadhaar-seeded)"
+  - "Photo of current house (showing kutcha construction)"
+  - "Self-declaration of houselessness or kutcha status"
+
+application_route:
+  type: csc
+  instruction: "Visit your nearest Common Service Centre (CSC). The VLE will verify your Aadhaar and submit the Awaas+ form."
+
+human_in_loop_trigger:
+  - field: awaas_plus_survey
+    reason: "Awaas+ 2024-25 survey enrollment must be confirmed by local Gram Panchayat"
