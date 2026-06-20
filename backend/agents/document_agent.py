@@ -2,6 +2,7 @@ import os
 import json
 from typing import Any, Dict, List
 
+import re
 import requests
 
 
@@ -29,15 +30,24 @@ OUTPUT FORMAT:
 """
 
 
+
+def _strip_markdown(text: str) -> str:
+    text = text.strip()
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
+    return text.strip()
+
+
 def _call_groq(system_prompt: str, user_message: str) -> str:
     api_key = os.environ.get('GROQ_API_KEY')
     if not api_key:
         raise EnvironmentError('GROQ_API_KEY not set')
 
-    base = os.environ.get('GROQ_API_URL', 'https://api.groq.com/v1')
-    url = f"{base}/llms/llama-3.1-8b-instant/completions"
+    base = os.environ.get('GROQ_API_URL', 'https://api.groq.com')
+    url = f"{base}/openai/v1/chat/completions"
     headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
     body = {
+        'model': 'llama-3.1-8b-instant',
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_message}
@@ -65,7 +75,7 @@ def generate_documents(matched_schemes: List[Dict[str, Any]], user_data: Dict[st
     # Try Groq first
     try:
         content = _call_groq(SYSTEM_PROMPT, user_message)
-        parsed = json.loads(content)
+        parsed = json.loads(_strip_markdown(content))
         return parsed
     except Exception:
         # Local deterministic fallback: aggregate documents from schemes

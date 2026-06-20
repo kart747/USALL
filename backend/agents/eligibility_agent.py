@@ -3,6 +3,7 @@ import glob
 import json
 from typing import Any, Dict, List
 
+import re
 import yaml
 import requests
 
@@ -58,6 +59,14 @@ OUTPUT FORMAT:
 """
 
 
+
+def _strip_markdown(text: str) -> str:
+    text = text.strip()
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
+    return text.strip()
+
+
 def _prepare_user_message(user_data: Dict[str, Any], schemes: List[Dict[str, Any]]) -> str:
     payload = {
         'user_data': user_data,
@@ -72,8 +81,8 @@ def _call_groq_system(system_prompt: str, user_message: str) -> str:
         raise EnvironmentError('GROQ_API_KEY not set in environment')
 
     # Default base URL; allow override
-    base = os.environ.get('GROQ_API_URL', 'https://api.groq.com/v1')
-    url = f"{base}/llms/llama-3.1-8b-instant/completions"
+    base = os.environ.get('GROQ_API_URL', 'https://api.groq.com')
+    url = f"{base}/openai/v1/chat/completions"
 
     headers = {
         'Authorization': f'Bearer {api_key}',
@@ -81,6 +90,7 @@ def _call_groq_system(system_prompt: str, user_message: str) -> str:
     }
 
     body = {
+        'model': 'llama-3.1-8b-instant',
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_message}
@@ -216,7 +226,7 @@ def analyze_eligibility(user_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
             completion_text = _call_groq_system(SYSTEM_PROMPT, user_message)
             # Expecting strict JSON output per system prompt
-            parsed = json.loads(completion_text)
+            parsed = json.loads(_strip_markdown(completion_text))
             llm_schemes = parsed.get('schemes', [])
             # Normalize to expected fields
             for s in llm_schemes:

@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from typing import Any, Dict, List
 
@@ -6,17 +7,15 @@ import requests
 from textwrap import shorten
 
 
-# System prompt from project plan
 SYSTEM_PROMPT = """
-You are YojanaPath's CSC handoff generator. Generate a short, plain-language summary the user can show or read to the VLE operator at their nearest Common Service Centre.
+You are YojanaPath's CSC handoff generator. Generate a short, plain-language summary the user can show to the VLE operator at their nearest Common Service Centre.
 
 RULES:
-1. Keep it under 100 words
-2. Use simple language — assume the reader has low literacy
-3. Include: user's name (if given), schemes they likely qualify for, key facts supporting eligibility
-4. Output in Hindi if user language is Hindi
-5. End with: "Please help this person apply for the above schemes."
-6. Respond ONLY in valid JSON.
+1. Keep it under 80 words — simple, clear language
+2. Include: any name if given, which schemes they qualify for, 2-3 key facts (location, housing, income)
+3. Output in Hindi if user language is Hindi, English otherwise
+4. End with: "Please help this person apply for the above schemes."
+5. Respond ONLY in valid JSON — no markdown, no code fences, no preamble
 
 OUTPUT FORMAT:
 {
@@ -27,15 +26,25 @@ OUTPUT FORMAT:
 """
 
 
+def _strip_markdown(text: str) -> str:
+    """Remove markdown code fences the LLM sometimes wraps around JSON."""
+    text = text.strip()
+    # Remove ```json ... ``` or ``` ... ```
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
+    return text.strip()
+
+
 def _call_groq(system_prompt: str, user_message: str) -> str:
     api_key = os.environ.get('GROQ_API_KEY')
     if not api_key:
         raise EnvironmentError('GROQ_API_KEY not set')
 
-    base = os.environ.get('GROQ_API_URL', 'https://api.groq.com/v1')
-    url = f"{base}/llms/llama-3.1-8b-instant/completions"
+    base = os.environ.get('GROQ_API_URL', 'https://api.groq.com')
+    url = f"{base}/openai/v1/chat/completions"
     headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
     body = {
+        'model': 'llama-3.1-8b-instant',
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_message}
@@ -59,40 +68,52 @@ def generate_handoff(matched_schemes: List[Dict[str, Any]], user_data: Dict[str,
     user_message = json.dumps({'matched_schemes': matched_schemes, 'user_data': user_data}, ensure_ascii=False)
 
     try:
-        content = _call_groq(SYSTEM_PROMPT, user_message)
-        parsed = json.loads(content)
+        raw = _call_groq(SYSTEM_PROMPT, user_message)
+        cleaned = _strip_markdown(raw)
+        parsed = json.loads(cleaned)
         return parsed
     except Exception:
-        # fallback: generate a concise summary
-        name = user_data.get('name') or ''
-        lang = user_data.get('language') or user_data.get('lang') or 'en'
-        scheme_names = [s.get('scheme_name') or s.get('scheme_id') for s in matched_schemes]
-        scheme_short = ', '.join(scheme_names[:5])
+        # Graceful fallback — no "My name ." when name is missing
+        lang = (user_data.get('language') or user_data.get('lang') or 'en').lower()
+        name = (user_data.get('name') or '').strip()
+
+        # Short scheme list — use scheme_id if name is too long
+        scheme_labels = []
+        for s in matched_schemes:
+            nm = s.get('scheme_name') or s.get('scheme_id') or ''
+            # shorten very long names to their ID for readability
+            sid = s.get('scheme_id') or ''
+            scheme_labels.append(sid.upper() if len(nm) > 30 else nm)
+        scheme_str = ', '.join(scheme_labels[:5])
+
+        # Facts about the person
         facts = []
-        if user_data.get('location_type'):
-            facts.append(user_data.get('location_type'))
-        if user_data.get('housing_type'):
-            facts.append(user_data.get('housing_type'))
-        if user_data.get('monthly_household_income') is not None:
-            facts.append(f"income ₹{user_data.get('monthly_household_income')}")
-
+        loc = user_data.get('location_type')
+        housing = user_data.get('housing_type')
+        income = user_data.get('monthly_household_income')
+        if loc:    facts.append(f"{loc} area")
+        if housing: facts.append(f"{housing} house")
+        if income is not None: facts.append(f"income ₹{income}/month")
         fact_str = ', '.join(facts)
-        if lang.lower().startswith('hi'):
-            summary = f"Mera naam {name}. {fact_str}. Sambhavtah yeh: {scheme_short}. Kripya inmein madad karein."
-        else:
-            summary = f"My name {name}. {fact_str}. Likely: {scheme_short}. Please help apply."
 
-        # Ensure under 100 words
-        summary = shorten(summary, width=500, placeholder='')
+        if lang.startswith('hi'):
+            name_part = f"मेरा नाम {name} है। " if name else ""
+            summary = f"{name_part}{fact_str}। संभावित योजनाएं: {scheme_str}। कृपया आवेदन में मदद करें।"
+        else:
+            name_part = f"Name: {name}. " if name else ""
+            summary = f"{name_part}{fact_str}. Likely qualifies for: {scheme_str}. Please help this person apply for the above schemes."
 
         return {
             'handoff_summary': summary.strip(),
-            'schemes_to_apply': scheme_names,
+            'schemes_to_apply': [s.get('scheme_name') or s.get('scheme_id') for s in matched_schemes],
             'csc_instruction': 'Please help this person apply for the above schemes.'
         }
 
 
 if __name__ == '__main__':
-    sample = [{'scheme_id': 'pmay_g', 'scheme_name': 'PMAY-G'}]
-    user = {'name': 'Ramesh', 'location_type': 'rural', 'housing_type': 'kutcha', 'monthly_household_income': 8000, 'language': 'en'}
+    sample = [
+        {'scheme_id': 'pmay_g', 'scheme_name': 'Pradhan Mantri Awas Yojana - Gramin'},
+        {'scheme_id': 'pds',    'scheme_name': 'PDS / Ration Card'},
+    ]
+    user = {'location_type': 'rural', 'housing_type': 'kutcha', 'monthly_household_income': 8000, 'language': 'en'}
     print(json.dumps(generate_handoff(sample, user), ensure_ascii=False, indent=2))

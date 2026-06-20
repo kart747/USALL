@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+groq
+langdetect
+pydantic
+python-dotenv
+httpx

@@ -1,6 +1,9 @@
 import os
 import sys
 import json
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException
