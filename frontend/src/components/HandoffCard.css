@@ -1,0 +1,89 @@
+.handoff-card {
+  background: linear-gradient(135deg, rgba(19,136,8,0.08), rgba(7,13,26,0));
+  border: 1px solid rgba(19,136,8,0.3);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: fadeUp 0.4s ease both;
+}
+.handoff-header { display: flex; align-items: flex-start; gap: 14px; }
+.handoff-icon { font-size: 32px; flex-shrink: 0; }
+.handoff-title { font-size: 17px; font-weight: 700; color: var(--text); }
+.handoff-sub { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+
+.handoff-schemes { display: flex; flex-wrap: wrap; gap: 8px; }
+.handoff-scheme-tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  background: var(--green-dim);
+  border: 1px solid rgba(19,136,8,0.3);
+  color: #4ade80;
+}
+
+.handoff-summary {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  position: relative;
+}
+.handoff-summary p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  padding-right: 80px;
+}
+.copy-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  transition: all var(--transition);
+}
+.copy-btn:hover { border-color: var(--green); color: #4ade80; }
+
+.handoff-instruction {
+  background: rgba(74,144,217,0.06);
+  border: 1px solid rgba(74,144,217,0.2);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.instr-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 5px;
+}
+.handoff-instruction p { font-size: 13px; color: var(--text-muted); }
+
+.handoff-cta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--green-dim);
+  border: 1px solid rgba(19,136,8,0.25);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: #4ade80;
+  transition: all var(--transition);
+}
+.handoff-cta:hover { background: rgba(19,136,8,0.2); }
+.handoff-cta a {
+  color: #4ade80;
+  font-weight: 700;
+}

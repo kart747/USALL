@@ -1,0 +1,34 @@
+scheme_id: pmjjby
+name: "Pradhan Mantri Jeevan Jyoti Bima Yojana (PMJJBY)"
+name_hindi: "प्रधानमंत्री जीवन ज्योति बीमा योजना"
+benefit: "Term life insurance benefit of ₹2,00,000 on death (any cause)"
+ministry: "Ministry of Finance / Department of Financial Services"
+last_updated: "2024-08"
+
+eligibility:
+  required:
+    - field: age
+      operator: greater_than_or_equal
+      value: 18
+      reason: "Applicant must be 18 or older"
+    - field: age
+      operator: less_than_or_equal
+      value: 50
+      reason: "Eligibility upper age limit is 50 years"
+    - field: has_savings_bank_account
+      operator: equals
+      value: true
+      reason: "A linked savings bank account is required for auto-debit premium"
+  exclusions: []
+
+documents_required:
+  - "Aadhaar Card"
+  - "Bank Passbook / account details (for auto-debit)"
+
+application_route:
+  type: csc
+  instruction: "Visit CSC or your bank branch; enrolment requires an active savings account and consent for auto-debit premium (₹436/year). VLE or bank can assist."
+
+human_in_loop_trigger:
+  - field: auto_debit_setup
+    reason: "Bank needs to set up auto-debit mandate for the annual premium; CSC/branch assistance often required"

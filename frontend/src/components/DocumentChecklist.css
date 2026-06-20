@@ -1,0 +1,42 @@
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.doc-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  transition: border-color var(--transition);
+  animation: slideIn 0.3s ease both;
+}
+.doc-item:hover { border-color: rgba(74,144,217,0.4); }
+.doc-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.doc-content { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.doc-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.doc-schemes { display: flex; flex-wrap: wrap; gap: 6px; }
+.doc-scheme-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--blue-dim);
+  border: 1px solid rgba(74,144,217,0.2);
+  color: var(--blue);
+}
+.doc-flag {
+  font-size: 12px;
+  color: var(--warn);
+  background: rgba(245,158,11,0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.doc-check {
+  font-size: 20px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}

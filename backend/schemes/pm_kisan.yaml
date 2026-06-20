@@ -1,0 +1,45 @@
+scheme_id: pm_kisan
+name: "Pradhan Mantri Kisan Samman Nidhi (PM-KISAN)"
+name_hindi: "प्रधान मंत्री किसान सम्मान निधि"
+benefit: "₹6,000/year (3 instalments of ₹2,000) paid to eligible landholding farmer families"
+ministry: "Ministry of Agriculture & Farmers Welfare"
+last_updated: "2024-08"
+
+eligibility:
+  required:
+    - field: land_holding_acres
+      operator: greater_than_or_equal
+      value: 0.01
+      reason: "Scheme targets landholding farmer families"
+  exclusions:
+    - field: income_tax_payer
+      operator: equals
+      value: true
+      reason: "Income tax payers are excluded"
+    - field: employment_type
+      operator: equals
+      value: government
+      reason: "Government employees are excluded (except Class IV in some states)"
+    - field: pension_monthly
+      operator: greater_than
+      value: 10000
+      reason: "Pensioners receiving >₹10,000/month are excluded"
+    - field: profession
+      operator: in
+      value: [doctor, lawyer, chartered_accountant]
+      reason: "Professionals are excluded"
+
+documents_required:
+  - "Kisan Pehchaan Patra (if mandated by state)"
+  - "Aadhaar Card"
+  - "Bank Passbook (Aadhaar-seeded)"
+  - "Land ownership proof (7/12, RTC, Patta)"
+  - "Photo ID (Voter ID / Driving Licence)"
+
+application_route:
+  type: csc
+  instruction: "Visit your nearest Common Service Centre (CSC). Bring land records and Aadhaar; the VLE will help enroll/verify and submit PM-KISAN claim."
+
+human_in_loop_trigger:
+  - field: kisan_pehchaan_required
+    reason: "Some states require Kisan Pehchaan Patra; VLE/state office must confirm and issue where needed"

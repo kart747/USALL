@@ -1,0 +1,82 @@
+.reasoning-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-top: -8px;
+}
+.reasoning-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.03);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  transition: background var(--transition);
+}
+.reasoning-toggle:hover { background: var(--surface-hover); color: var(--text); }
+.toggle-arrow { font-size: 10px; }
+
+.reasoning-body {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeUp 0.25s ease both;
+}
+.reasoning-intro { font-size: 12px; color: var(--text-dim); }
+
+.reasoning-table-wrap { overflow-x: auto; }
+.reasoning-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.reasoning-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.reasoning-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: top;
+}
+.reasoning-row:last-child td { border-bottom: none; }
+.row--pass { background: rgba(34,197,94,0.04); }
+.row--fail { background: rgba(239,68,68,0.04); }
+
+.col-user { color: var(--text-muted); font-weight: 500; min-width: 140px; }
+.col-rule { color: var(--text-dim); min-width: 160px; }
+.col-result { text-align: center; min-width: 56px; }
+
+.result-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 14px;
+}
+.chip--pass { background: rgba(34,197,94,0.15); color: var(--pass); }
+.chip--fail { background: rgba(239,68,68,0.15); color: var(--fail); }
+.chip--unknown { background: rgba(245,158,11,0.15); color: var(--warn); }
+
+.reasoning-explanation {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.03);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
