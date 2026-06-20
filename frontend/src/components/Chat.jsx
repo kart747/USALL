@@ -23,12 +23,14 @@ function inferCurrentField(col) {
 }
 
 export default function Chat({ onResults, lang }) {
+  const [mode, setMode]             = useState('eligibility')
   const [messages, setMessages]       = useState([])
   const [input, setInput]             = useState('')
   const [loading, setLoading]         = useState(false)
   const [started, setStarted]         = useState(false)
   const [currentField, setCurrentField] = useState(null)
   const [progress, setProgress]       = useState(0)
+  const [factCheckResult, setFactCheckResult] = useState(null)
 
   // Use a ref so async callbacks always see the latest collected — no stale closure
   const collectedRef = useRef({})
@@ -40,6 +42,22 @@ export default function Chat({ onResults, lang }) {
 
   function pushMsg(role, text) {
     setMessages(prev => [...prev, { role, text, id: Date.now() + Math.random() }])
+  }
+
+  function resetChatState() {
+    setMessages([])
+    setInput('')
+    setLoading(false)
+    setStarted(false)
+    setCurrentField(null)
+    setProgress(0)
+    collectedRef.current = {}
+  }
+
+  function switchMode(nextMode) {
+    setMode(nextMode)
+    setFactCheckResult(null)
+    resetChatState()
   }
 
   function updateCollected(newCol) {
@@ -108,6 +126,11 @@ export default function Chat({ onResults, lang }) {
   }
 
   async function handleSend() {
+    if (mode === 'rumor') {
+      await handleFactCheck()
+      return
+    }
+
     const val = input.trim()
     if (!val || loading) return
     pushMsg('user', val)
@@ -123,6 +146,44 @@ export default function Chat({ onResults, lang }) {
     await askNext(next, val)
   }
 
+  async function handleFactCheck() {
+    const claim = input.trim()
+    if (!claim || loading) return
+    setLoading(true)
+    setFactCheckResult(null)
+    try {
+      const res = await fetch('/fact-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claim }),
+      })
+      const data = await res.json()
+      setFactCheckResult(data)
+    } catch {
+      setFactCheckResult({
+        claim,
+        verdict: 'UNVERIFIED',
+        explanation: lang === 'hi'
+          ? 'फैक्ट-चेक करने में समस्या हुई।'
+          : 'Fact check failed. Please try again.',
+        source_scheme: '',
+        language: lang,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const factCheckMeta = {
+    TRUE: { label: lang === 'hi' ? 'सही' : 'True', icon: '✅', tone: 'true' },
+    FALSE: { label: lang === 'hi' ? 'गलत' : 'False', icon: '✗', tone: 'false' },
+    PARTIALLY_TRUE: { label: lang === 'hi' ? 'आंशिक रूप से सही' : 'Partially true', icon: '⚠️', tone: 'warn' },
+    UNVERIFIED: { label: lang === 'hi' ? 'असत्यापित' : 'Unverified', icon: '⚠️', tone: 'warn' },
+  }
+
+  const factCheckVerdict = factCheckResult?.verdict || 'UNVERIFIED'
+  const factCheckState = factCheckMeta[factCheckVerdict] || factCheckMeta.UNVERIFIED
+
   function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
@@ -134,7 +195,71 @@ export default function Chat({ onResults, lang }) {
 
   return (
     <div className="chat-outer">
-      {!started ? (
+      <div className="mode-tabs">
+        <button
+          className={`mode-tab ${mode === 'eligibility' ? 'active' : ''}`}
+          onClick={() => switchMode('eligibility')}
+        >
+          {lang === 'hi' ? 'अपनी पात्रता जांचें' : 'Check my eligibility'}
+        </button>
+        <button
+          className={`mode-tab ${mode === 'rumor' ? 'active' : ''}`}
+          onClick={() => switchMode('rumor')}
+        >
+          {lang === 'hi' ? 'एक अफवाह जांचें' : 'Check a rumor'}
+        </button>
+      </div>
+
+      {mode === 'rumor' ? (
+        <div className="rumor-hero">
+          <div className="hero-badge">{lang === 'hi' ? 'Fact Check' : 'Fact Check'}</div>
+          <h1 className="hero-title">
+            {lang === 'hi' ? 'किसी योजना के बारे में दावे की जांच करें' : 'Check a claim about a scheme'}
+          </h1>
+          <p className="hero-sub">
+            {lang === 'hi'
+              ? 'एक वाक्य लिखें और देखें कि वह योजना YAML तथ्यों से मेल खाता है या नहीं।'
+              : 'Type a rumor or claim and compare it with the scheme facts in the knowledge base.'}
+          </p>
+
+          <div className="rumor-panel">
+            <div className="input-wrap rumor-input-wrap">
+              <input
+                className="chat-input"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder={lang === 'hi' ? 'जैसे: PM-KISAN बंद हो गया है' : 'Example: PM-KISAN has been stopped'}
+                disabled={loading}
+                autoFocus
+              />
+              <button
+                className="send-btn"
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+              >
+                {loading ? <span className="spinner" /> : '➤'}
+              </button>
+            </div>
+
+            {factCheckResult && (
+              <div className={`fact-check-card fact-check-card--${factCheckState.tone}`}>
+                <div className="fact-check-head">
+                  <div>
+                    <span className="fact-check-icon">{factCheckState.icon}</span>
+                    <span className="fact-check-label">{factCheckState.label}</span>
+                  </div>
+                  <div className="fact-check-scheme">
+                    {factCheckResult.source_scheme || (lang === 'hi' ? 'अज्ञात योजना' : 'Unknown scheme')}
+                  </div>
+                </div>
+                <p className="fact-check-claim">{factCheckResult.claim}</p>
+                <p className="fact-check-explanation">{factCheckResult.explanation}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : !started ? (
         <div className="chat-hero">
           <div className="hero-badge">USAII Global AI Hackathon 2026 · Brief 4</div>
           <h1 className="hero-title">

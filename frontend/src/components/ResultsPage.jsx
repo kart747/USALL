@@ -2,12 +2,14 @@ import ResultCard from './ResultCard.jsx'
 import ReasoningChain from './ReasoningChain.jsx'
 import DocumentChecklist from './DocumentChecklist.jsx'
 import HandoffCard from './HandoffCard.jsx'
+import SummaryBanner from './SummaryBanner.jsx'
 import './ResultsPage.css'
 
 export default function ResultsPage({ data, lang }) {
   const schemes = data?.eligibility?.schemes || []
   const documents = data?.documents?.documents || []
   const handoff = data?.handoff || {}
+  const stackingSummary = data?.stacking_summary || {}
 
   const matched = schemes.filter(s =>
     s.verdict === 'likely_qualifies' || s.verdict === 'possibly_qualifies'
@@ -42,6 +44,8 @@ export default function ResultsPage({ data, lang }) {
             <span className="stat-label">{lang === 'hi' ? 'दस्तावेज़' : 'Documents needed'}</span>
           </div>
         </div>
+
+        <SummaryBanner summary={stackingSummary} lang={lang} />
 
         {/* Matched schemes */}
         {matched.length > 0 && (

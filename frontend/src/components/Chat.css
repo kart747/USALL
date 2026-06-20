@@ -7,9 +7,44 @@
   padding: 32px 16px;
 }
 
+.mode-tabs {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  margin-bottom: 18px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+.mode-tab {
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: transparent;
+  transition: all var(--transition);
+}
+.mode-tab.active {
+  color: #101010;
+  background: linear-gradient(135deg, var(--saffron), #ffd08a);
+  box-shadow: 0 6px 18px rgba(255,153,51,0.25);
+}
+.mode-tab:hover:not(.active) {
+  color: var(--text);
+  background: rgba(255,255,255,0.04);
+}
+
 /* ── Hero Landing ── */
 .chat-hero {
   max-width: 640px;
+  width: 100%;
+  text-align: center;
+  animation: fadeUp 0.6s ease both;
+}
+.rumor-hero {
+  max-width: 720px;
   width: 100%;
   text-align: center;
   animation: fadeUp 0.6s ease both;
@@ -184,6 +219,64 @@
 }
 .send-btn:hover:not(:disabled) { transform: scale(1.08); }
 .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rumor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+.rumor-input-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.fact-check-card {
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.35s ease both;
+}
+.fact-check-card--true { border-color: rgba(34,197,94,0.35); }
+.fact-check-card--false { border-color: rgba(239,68,68,0.35); }
+.fact-check-card--warn { border-color: rgba(245,158,11,0.35); }
+.fact-check-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+.fact-check-icon {
+  font-size: 18px;
+  margin-right: 8px;
+}
+.fact-check-label {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.fact-check-scheme {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: right;
+}
+.fact-check-claim {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.fact-check-explanation {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
 
 .spinner {
   width: 18px;

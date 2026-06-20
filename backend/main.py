@@ -15,7 +15,8 @@ BASE_DIR = os.path.dirname(__file__)
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from agents import eligibility_agent, document_agent, handoff_agent
+from agents import eligibility_agent, document_agent, handoff_agent, fact_check_agent
+from aggregator import summarize_scheme_stacking
 from langdetect import detect
 
 
@@ -40,6 +41,10 @@ class ChatRequest(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     user_data: Dict[str, Any]
+
+
+class FactCheckRequest(BaseModel):
+    claim: str
 
 
 app = FastAPI()
@@ -100,6 +105,7 @@ def analyze(req: AnalyzeRequest):
         raise HTTPException(status_code=500, detail=f'Eligibility agent error: {e}')
 
     matched = eligibility.get('schemes', [])
+    stacking_summary = summarize_scheme_stacking(matched)
 
     # Call document agent and handoff agent
     try:
@@ -115,8 +121,17 @@ def analyze(req: AnalyzeRequest):
     return {
         'eligibility': eligibility,
         'documents': documents,
-        'handoff': handoff
+        'handoff': handoff,
+        'stacking_summary': stacking_summary,
     }
+
+
+@app.post('/fact-check')
+def fact_check(req: FactCheckRequest):
+    try:
+        return fact_check_agent.fact_check_claim(req.claim)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Fact check agent error: {e}')
 
 
 if __name__ == '__main__':
