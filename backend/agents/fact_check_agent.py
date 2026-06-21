@@ -305,9 +305,72 @@ def _local_verdict(claim: str, language: str, schemes: List[Dict[str, Any]]) -> 
     }
 
 
+def _claim_names_unknown_scheme(claim: str, schemes: List[Dict[str, Any]]) -> bool:
+    """Return True if the claim appears to name a specific scheme that does NOT
+    match any known scheme alias in the knowledge base.
+
+    Logic:
+      1. Collect all known aliases across all schemes.
+      2. Check whether the claim contains ANY known alias — if yes, it's a
+         known scheme and we should proceed normally (return False).
+      3. If no known alias is found AND the claim contains a capitalized
+         multi-word phrase that looks like a scheme name (heuristic: contains
+         words like "Yojana", "Scheme", "Nidhi", "Awas", "Bima", "Plus",
+         "Bharat", "Mission", "Portal", a sequence of capital letters, or
+         follows the pattern "Modi/PM/Pradhan + noun"), treat it as a claim
+         about an UNKNOWN scheme → return True (should be UNVERIFIED).
+    """
+    norm_claim = _normalize(claim)
+
+    # Step 1: If any known alias appears in the claim, it's a known scheme.
+    for scheme in schemes:
+        for alias in _scheme_aliases(scheme):
+            if alias and alias in norm_claim:
+                return False  # known scheme — proceed normally
+
+    # Step 2: Heuristic — does the claim name a scheme-like entity?
+    scheme_indicators = [
+        'yojana', 'scheme', 'nidhi', 'awas', 'bima', 'bharat', 'mission',
+        'portal', 'plus', 'seva', 'suraksha', 'samman', 'sahay', 'mudra',
+    ]
+    claim_lower = claim.lower()
+    has_scheme_keyword = any(word in claim_lower for word in scheme_indicators)
+
+    # Also check for "PM <something>" or "Modi <something>" pattern
+    import re as _re
+    looks_like_scheme_name = bool(
+        _re.search(r'\b(pm|modi|pradhan|rashtriya|national|jan|atal)\b', claim_lower)
+    )
+
+    return has_scheme_keyword or looks_like_scheme_name
+
+
 def fact_check_claim(claim: str) -> Dict[str, Any]:
     schemes = load_schemes()
     language = _detect_language(claim)
+
+    # --- Fix 2: Reject claims about unknown / fake schemes before fuzzy matching ---
+    # If the claim names a scheme-like entity but no alias matches any YAML scheme,
+    # return UNVERIFIED immediately instead of silently remapping to a real scheme.
+    if _claim_names_unknown_scheme(claim, schemes):
+        explanation = (
+            'The scheme mentioned in this claim does not match any scheme '
+            'in the knowledge base. It may be a fake, rumoured, or misnamed scheme.'
+        )
+        if language == 'hi':
+            explanation = (
+                'इस दावे में जिस योजना का उल्लेख है, वह हमारी जानकारी के आधार में मौजूद नहीं है। '
+                'यह एक फर्जी, अफवाह, या गलत नाम वाली योजना हो सकती है।'
+            )
+        return {
+            'claim': claim,
+            'verdict': 'UNVERIFIED',
+            'explanation': explanation,
+            'source_scheme': '',
+            'language': language,
+        }
+    # --- end Fix 2 ---
+
     candidates = _select_candidate_schemes(claim, schemes)
 
     if not candidates:

@@ -137,18 +137,45 @@ def _simple_local_rule_engine(user_data: Dict[str, Any], schemes: List[Dict[str,
         missing = []
         reasoning = []
         verdict = 'likely_qualifies'
-        score = 75
 
         for r in reqs:
             field = r.get('field')
             if field not in user_data or user_data.get(field) is None:
                 missing.append(field)
-                reasoning.append({'user_value': None, 'rule': r.get('reason'), 'result': 'unknown', 'explanation': 'Required field missing'})
+                reasoning.append({'user_value': None, 'rule': r.get('reason'), 'result': 'uncertain', 'explanation': 'Required field missing'})
                 verdict = 'possibly_qualifies'
-                score = 50
             else:
                 # naive pass
                 reasoning.append({'user_value': f"{field}: {user_data.get(field)}", 'rule': r.get('reason'), 'result': 'pass', 'explanation': 'Local heuristic pass'})
+
+        # --- Fix 1: PM-KISAN explicit govt-employee / high-income pre-check ---
+        # The YAML exclusion only fires on employment_type == "government" (exact).
+        # Real inputs arrive as "salaried" + is_government_employee=True, or with
+        # annual_income >₹2.5L, neither of which the generic loop catches.
+        if sid == 'pm_kisan':
+            is_govt = user_data.get('is_government_employee', False)
+            emp = str(user_data.get('employment_type') or '').lower()
+            annual_income = user_data.get('annual_income') or 0
+            monthly_income = user_data.get('monthly_household_income') or 0
+            # Treat monthly > 20833 as annualised > 2.5L if annual_income not provided
+            effective_annual = annual_income if annual_income else monthly_income * 12
+            if is_govt or emp in ('government', 'govt', 'salaried_govt'):
+                reasoning.append({
+                    'user_value': f"is_government_employee: {is_govt}, employment_type: {emp}",
+                    'rule': 'Government employees are excluded from PM-KISAN',
+                    'result': 'fail',
+                    'explanation': 'is_government_employee flag is True or employment maps to govt service'
+                })
+                verdict = 'unlikely_to_qualify'
+            elif effective_annual > 250000:
+                reasoning.append({
+                    'user_value': f"annual_income: {effective_annual}",
+                    'rule': 'Income tax payers / high-income individuals are excluded from PM-KISAN',
+                    'result': 'fail',
+                    'explanation': f'Annual income ₹{effective_annual:,} exceeds ₹2,50,000 threshold; likely income-tax payer'
+                })
+                verdict = 'unlikely_to_qualify'
+        # --- end Fix 1 ---
 
         for e in exs:
             field = e.get('field')
@@ -164,22 +191,50 @@ def _simple_local_rule_engine(user_data: Dict[str, Any], schemes: List[Dict[str,
                     excluded = True
                 if op == 'greater_than' and isinstance(val, (int, float)) and val > ex_val:
                     excluded = True
+                if op == 'in' and isinstance(ex_val, list) and val in ex_val:
+                    excluded = True
                 if excluded:
                     reasoning.append({'user_value': f"{field}: {val}", 'rule': e.get('reason'), 'result': 'fail', 'explanation': 'Local heuristic exclusion matched'})
                     verdict = 'unlikely_to_qualify'
-                    score = 10
 
         results.append({
             'scheme_id': sid,
             'scheme_name': scheme_name,
             'verdict': verdict,
-            'confidence_score': score,
+            'confidence_level': compute_confidence(reasoning),
             'reasoning_chain': reasoning,
             'missing_fields': missing,
             'next_step': s.get('application_route', {}).get('instruction')
         })
 
     return results
+
+
+def compute_confidence(reasoning_steps: list) -> str:
+    """Deterministically derive confidence from reasoning step results.
+
+    Args:
+        reasoning_steps: list of dicts, each with a 'result' key.
+                         Expected values: 'pass', 'fail', 'uncertain'.
+
+    Returns:
+        'not_eligible'  – if any step has result == 'fail'
+        'high'          – all steps pass (zero uncertain)
+        'medium'        – exactly one uncertain step, no fails
+        'uncertain'     – two or more uncertain steps, no fails
+        'uncertain'     – empty steps list (cannot determine)
+    """
+    if not reasoning_steps:
+        return "uncertain"
+    if any(s["result"] == "fail" for s in reasoning_steps):
+        return "not_eligible"
+    uncertain_count = sum(1 for s in reasoning_steps if s["result"] == "uncertain")
+    if uncertain_count == 0:
+        return "high"
+    elif uncertain_count == 1:
+        return "medium"
+    else:
+        return "uncertain"
 
 
 def analyze_eligibility(user_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -197,24 +252,97 @@ def analyze_eligibility(user_data: Dict[str, Any]) -> Dict[str, Any]:
     for s in schemes:
         if s.get('scheme_id') == 'pmjay' and age is not None and age >= 70:
             # create bypassed result
+            bypass_steps = [
+                {
+                    'user_value': f"age: {age}",
+                    'rule': 'Age 70+ bypass',
+                    'result': 'pass',
+                    'explanation': 'Age >= 70 triggers PMJAY direct eligibility override'
+                }
+            ]
             entry = {
                 'scheme_id': 'pmjay',
                 'scheme_name': s.get('name'),
                 'verdict': 'likely_qualifies',
-                'confidence_score': 98,
-                'reasoning_chain': [
-                    {
-                        'user_value': f"age: {age}",
-                        'rule': 'Age 70+ bypass',
-                        'result': 'pass',
-                        'explanation': 'Age >= 70 triggers PMJAY direct eligibility override'
-                    }
-                ],
+                'confidence_level': compute_confidence(bypass_steps),
+                'reasoning_chain': bypass_steps,
                 'missing_fields': [],
                 'next_step': s.get('application_route', {}).get('instruction')
             }
             results.append(entry)
             # do not send PMJAY to LLM
+
+        elif s.get('scheme_id') == 'pm_kisan':
+            # --- Fix 1 (LLM path): PM-KISAN govt-employee / high-income deterministic override ---
+            # The LLM cannot reliably read is_government_employee or annual_income.
+            # Evaluate PM-KISAN here and skip sending it to the LLM entirely.
+            is_govt = bool(user_data.get('is_government_employee', False))
+            emp = str(user_data.get('employment_type') or '').lower()
+            annual_income = user_data.get('annual_income') or 0
+            monthly_income = user_data.get('monthly_household_income') or 0
+            effective_annual = annual_income if annual_income else monthly_income * 12
+            land = user_data.get('land_holding_acres')
+
+            pm_kisan_steps = []
+            pm_kisan_verdict = 'likely_qualifies'
+
+            # Check land ownership requirement first
+            if land is None:
+                pm_kisan_steps.append({
+                    'user_value': None,
+                    'rule': 'Scheme targets landholding farmer families',
+                    'result': 'uncertain',
+                    'explanation': 'land_holding_acres not provided'
+                })
+                pm_kisan_verdict = 'possibly_qualifies'
+            elif float(land) < 0.01:
+                pm_kisan_steps.append({
+                    'user_value': f"land_holding_acres: {land}",
+                    'rule': 'Scheme targets landholding farmer families',
+                    'result': 'fail',
+                    'explanation': 'No land holding — user does not meet the landholding requirement'
+                })
+                pm_kisan_verdict = 'unlikely_to_qualify'
+            else:
+                pm_kisan_steps.append({
+                    'user_value': f"land_holding_acres: {land}",
+                    'rule': 'Scheme targets landholding farmer families',
+                    'result': 'pass',
+                    'explanation': f'Land holding {land} acres meets the requirement'
+                })
+
+            # Government employee exclusion (deterministic)
+            if is_govt or emp in ('government', 'govt', 'salaried_govt'):
+                pm_kisan_steps.append({
+                    'user_value': f"is_government_employee: {is_govt}, employment_type: {emp}",
+                    'rule': 'Government employees are excluded from PM-KISAN',
+                    'result': 'fail',
+                    'explanation': 'is_government_employee=True or employment maps to government service'
+                })
+                pm_kisan_verdict = 'unlikely_to_qualify'
+
+            # High income / income-tax payer exclusion
+            elif effective_annual > 250000:
+                pm_kisan_steps.append({
+                    'user_value': f"annual_income: ₹{effective_annual:,}",
+                    'rule': 'Income tax payers / high-income individuals are excluded from PM-KISAN',
+                    'result': 'fail',
+                    'explanation': f'Annual income ₹{effective_annual:,} exceeds ₹2,50,000 — likely income-tax payer'
+                })
+                pm_kisan_verdict = 'unlikely_to_qualify'
+
+            results.append({
+                'scheme_id': 'pm_kisan',
+                'scheme_name': s.get('name'),
+                'verdict': pm_kisan_verdict,
+                'confidence_level': compute_confidence(pm_kisan_steps),
+                'reasoning_chain': pm_kisan_steps,
+                'missing_fields': [] if land is not None else ['land_holding_acres'],
+                'next_step': s.get('application_route', {}).get('instruction')
+            })
+            # do not send PM-KISAN to LLM
+            # --- end Fix 1 (LLM path) ---
+
         else:
             schemes_for_llm.append(s)
 
@@ -230,12 +358,19 @@ def analyze_eligibility(user_data: Dict[str, Any]) -> Dict[str, Any]:
             llm_schemes = parsed.get('schemes', [])
             # Normalize to expected fields
             for s in llm_schemes:
+                chain = s.get('reasoning_chain', [])
+                # Normalise LLM step results: any value not in {'pass','fail','uncertain'}
+                # (e.g. 'unknown', 'n/a') is treated as 'uncertain' for confidence scoring.
+                normalised_chain = [
+                    {**step, 'result': step.get('result') if step.get('result') in ('pass', 'fail', 'uncertain') else 'uncertain'}
+                    for step in chain
+                ]
                 results.append({
                     'scheme_id': s.get('scheme_id'),
-                    'scheme_name': s.get('scheme_name') or s.get('scheme_name'),
+                    'scheme_name': s.get('scheme_name'),
                     'verdict': s.get('verdict'),
-                    'confidence_score': s.get('confidence_score') or s.get('confidence_level') or 0,
-                    'reasoning_chain': s.get('reasoning_chain', []),
+                    'confidence_level': compute_confidence(normalised_chain),
+                    'reasoning_chain': chain,
                     'missing_fields': s.get('missing_fields', []),
                     'next_step': s.get('next_step', '')
                 })
