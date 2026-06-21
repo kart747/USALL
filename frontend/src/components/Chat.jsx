@@ -3,21 +3,25 @@ import Message from './Message.jsx'
 import './Chat.css'
 
 const HERO_QUESTIONS = [
-  { field: 'age',                      label: 'Age',               hint: 'e.g. 42' },
-  { field: 'gender',                   label: 'Gender',            hint: 'Male / Female / Other' },
-  { field: 'caste_category',           label: 'Caste category',    hint: 'SC / ST / OBC / General' },
-  { field: 'state',                    label: 'State',             hint: 'e.g. Uttar Pradesh' },
-  { field: 'location_type',            label: 'Rural or Urban?',   hint: 'rural / urban' },
-  { field: 'monthly_household_income', label: 'Monthly income (₹)', hint: 'e.g. 8000' },
-  { field: 'employment_type',          label: 'Employment type',   hint: 'farmer / daily_wage / salaried / unemployed' },
-  { field: 'housing_type',             label: 'Housing type',      hint: 'pucca / kutcha / homeless' },
-  { field: 'land_holding_acres',       label: 'Land owned (acres)', hint: '0 if none' },
+  { field: 'age',                      label: 'Age',               hint: 'e.g. 42', type: 'number' },
+  { field: 'gender',                   label: 'Gender',            type: 'picklist', options: ['male', 'female', 'other'] },
+  { field: 'caste_category',           label: 'Caste category',    type: 'picklist', options: ['sc', 'st', 'obc', 'general'] },
+  { field: 'state',                    label: 'State',             hint: 'e.g. Uttar Pradesh', type: 'text' },
+  { field: 'location_type',            label: 'Rural or Urban?',   type: 'picklist', options: ['rural', 'urban'] },
+  { field: 'monthly_household_income', label: 'Monthly income (₹)', hint: 'e.g. 8000', type: 'number' },
+  { field: 'employment_type',          label: 'Employment type',   type: 'picklist', options: ['farmer', 'daily_wage', 'salaried', 'unemployed', 'government'] },
+  { field: 'housing_type',             label: 'Housing type',      type: 'picklist', options: ['pucca', 'kutcha', 'homeless'] },
+  { field: 'land_holding_acres',       label: 'Land owned (acres)', hint: '0 if none', type: 'number' },
+  { field: 'vehicle_type',             label: 'Vehicle ownership', type: 'picklist', options: ['none', 'two_wheeler', 'four_wheeler'] },
+  { field: 'has_savings_bank_account', label: 'Savings bank account?', type: 'boolean' },
+  { field: 'aadhaar_seeded_bank_account', label: 'Aadhaar-linked bank account?', type: 'boolean', options: ['yes', 'no', 'not_sure'] },
+  { field: 'willing_to_work',          label: 'Willing to do manual work?', type: 'boolean' },
 ]
 
 function inferCurrentField(col) {
   for (const q of HERO_QUESTIONS) {
     const v = col[q.field]
-    if (v === undefined || v === null || v === '') return q
+    if (v === undefined || v === null || v === '' || v === false) return q
   }
   return null
 }
@@ -32,7 +36,6 @@ export default function Chat({ onResults, lang }) {
   const [progress, setProgress]       = useState(0)
   const [factCheckResult, setFactCheckResult] = useState(null)
 
-  // Use a ref so async callbacks always see the latest collected — no stale closure
   const collectedRef = useRef({})
   const bottomRef    = useRef(null)
 
@@ -62,7 +65,10 @@ export default function Chat({ onResults, lang }) {
 
   function updateCollected(newCol) {
     collectedRef.current = newCol
-    const filled = HERO_QUESTIONS.filter(q => newCol[q.field] !== undefined && newCol[q.field] !== '').length
+    const filled = HERO_QUESTIONS.filter(q => {
+      const v = newCol[q.field]
+      return v !== undefined && v !== '' && v !== false
+    }).length
     setProgress(Math.round((filled / HERO_QUESTIONS.length) * 100))
     setCurrentField(inferCurrentField(newCol))
   }
@@ -87,7 +93,6 @@ export default function Chat({ onResults, lang }) {
       const data = await res.json()
       setLoading(false)
 
-      // Server echoes back collected (may add 'language') — use it as truth
       const serverCol = data.collected && Object.keys(data.collected).length > 0
         ? data.collected
         : col
@@ -125,25 +130,28 @@ export default function Chat({ onResults, lang }) {
     }
   }
 
-  async function handleSend() {
+  async function handleSend(val) {
     if (mode === 'rumor') {
       await handleFactCheck()
       return
     }
 
-    const val = input.trim()
-    if (!val || loading) return
-    pushMsg('user', val)
+    const value = val ?? input.trim()
+    if (!value || loading) return
+    pushMsg('user', value)
     setInput('')
 
-    // Read latest collected from ref (never stale, unlike useState)
     const latest = collectedRef.current
-    const field  = inferCurrentField(latest)          // which field to fill now
+    const field  = inferCurrentField(latest)
     const next   = { ...latest }
-    if (field) next[field.field] = val
-    updateCollected(next)                             // update ref + UI immediately
+    if (field) next[field.field] = value
+    updateCollected(next)
 
-    await askNext(next, val)
+    await askNext(next, value)
+  }
+
+  async function handleOptionClick(value) {
+    await handleSend(value)
   }
 
   async function handleFactCheck() {
@@ -190,8 +198,12 @@ export default function Chat({ onResults, lang }) {
 
   const filled = HERO_QUESTIONS.filter(q => {
     const v = collectedRef.current[q.field]
-    return v !== undefined && v !== ''
+    return v !== undefined && v !== '' && v !== false
   }).length
+
+  const showTextInput = currentField && (
+    currentField.type === 'text' || currentField.type === 'number' || !currentField.options
+  )
 
   return (
     <div className="chat-outer">
@@ -267,8 +279,8 @@ export default function Chat({ onResults, lang }) {
           </h1>
           <p className="hero-sub">
             {lang === 'hi'
-              ? '6 सवालों में जानें — हिंदी या अंग्रेजी में। कोई डेटा सेव नहीं होता।'
-              : '9 quick questions. Full reasoning. In your language. No data stored.'}
+              ? '13 सवालों में जानें — हिंदी या अंग्रेजी में। कोई डेटा सेव नहीं होता।'
+              : '13 quick questions. Full reasoning. In your language. No data stored.'}
           </p>
           <div className="hero-persona">
             <div className="persona-icon">👨‍🌾</div>
@@ -311,27 +323,50 @@ export default function Chat({ onResults, lang }) {
             {currentField && (
               <div className="field-hint">
                 <span className="hint-label">{currentField.label}</span>
-                <span className="hint-val">{currentField.hint}</span>
+                {currentField.hint && <span className="hint-val">{currentField.hint}</span>}
               </div>
             )}
-            <div className="input-wrap">
-              <input
-                className="chat-input"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                placeholder={lang === 'hi' ? 'अपना जवाब लिखें...' : 'Type your answer...'}
-                disabled={loading}
-                autoFocus
-              />
-              <button
-                className="send-btn"
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-              >
-                {loading ? <span className="spinner" /> : '➤'}
-              </button>
-            </div>
+
+            {currentField?.options ? (
+              <div className="options-row">
+                {currentField.options.map(opt => {
+                  let display = opt
+                  if (currentField.type === 'boolean' && currentField.options.length === 2) {
+                    display = opt === 'yes' ? (lang === 'hi' ? 'हाँ' : 'Yes') : (lang === 'hi' ? 'नहीं' : 'No')
+                  }
+                  return (
+                    <button
+                      key={opt}
+                      className="option-btn"
+                      onClick={() => handleOptionClick(opt)}
+                      disabled={loading}
+                    >
+                      {display}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : showTextInput && (
+              <div className="input-wrap">
+                <input
+                  className="chat-input"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder={lang === 'hi' ? 'अपना जवाब लिखें...' : 'Type your answer...'}
+                  disabled={loading}
+                  type={currentField?.type === 'number' ? 'number' : 'text'}
+                  autoFocus
+                />
+                <button
+                  className="send-btn"
+                  onClick={() => handleSend()}
+                  disabled={loading || !input.trim()}
+                >
+                  {loading ? <span className="spinner" /> : '➤'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

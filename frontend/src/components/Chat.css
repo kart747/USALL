@@ -278,6 +278,36 @@
   line-height: 1.6;
 }
 
+/* ── Option buttons (picklist / boolean) ── */
+.options-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.option-btn {
+  padding: 10px 18px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  transition: all var(--transition);
+  flex: 0 1 auto;
+}
+.option-btn:hover:not(:disabled) {
+  border-color: var(--saffron);
+  background: var(--saffron-dim);
+  color: var(--saffron);
+  transform: translateY(-1px);
+}
+.option-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .spinner {
   width: 18px;
   height: 18px;
